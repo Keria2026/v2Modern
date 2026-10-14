@@ -1,4 +1,17 @@
-# Move To https://github.com/v2fly/v2ray-core
+# V2 Modern Windows 客户端
+
+新增基于本仓库内核的 Windows 10/11 x64 桌面客户端：Liquid Glass 风格、节点/订阅管理、系统代理、托盘、实时日志及外部 Xray 支持。
+
+- [客户端使用与构建说明](desktop/README.md)
+- [Windows 构建与下载（Actions）](https://github.com/Keria2026/v2Modern/actions/workflows/desktop.yml)
+
+![客户端浅色界面](desktop/docs/screenshot-light.png)
+
+---
+
+以下为 fork 所基于的 V2Ray Core 上游说明。
+
+> 上游：https://github.com/v2fly/v2ray-core
 
 ***
 

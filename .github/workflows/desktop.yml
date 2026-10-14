@@ -1,0 +1,144 @@
+name: Desktop client
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop.yml"
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "release/config/**"
+  pull_request:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop.yml"
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "release/config/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows x64 tests and installers
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.15.15"
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --no-fund
+      - name: Typecheck, unit tests and dependency audit
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run format:check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm audit --omit=dev --audit-level=high
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build bundled fork and renderer
+        run: |
+          npm run build:core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify real core lifecycle, HTTP and CONNECT
+        run: |
+          $env:V2MODERN_TEST_CORE = (Resolve-Path resources/core/v2ray.exe).Path
+          npm run test:integration
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify actual Electron app and encrypted storage
+        run: npm run test:electron
+      - name: Build unsigned installer and portable executable
+        run: npx --no-install electron-builder --win nsis portable --x64 --publish never
+      - name: Write SHA-256 checksums
+        run: |
+          Get-ChildItem release/*.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          } | Set-Content release/SHA256SUMS.txt -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V2Modern-Windows-x64-${{ github.sha }}
+          path: |
+            desktop/release/*.exe
+            desktop/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  linux:
+    name: Linux integration and UI checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.15.15"
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci --no-fund
+      - run: npm run typecheck && npm run format:check && npm test && npm run build
+      - name: Build native core for functional tests
+        run: |
+          mkdir -p resources/core
+          cd ..
+          go build -mod=readonly -o desktop/resources/core/v2ray ./main
+          go build -mod=readonly -tags confonly -o desktop/resources/core/v2ctl ./infra/control/main
+      - name: Run real core integration
+        run: |
+          export V2MODERN_TEST_CORE="$PWD/resources/core/v2ray"
+          npm run test:integration
+      - name: Install headless browser for UI tests
+        run: npx --no-install playwright-core install --with-deps chromium
+      - name: Run production UI against real backend
+        run: |
+          rm -f docs/screenshot-*.png
+          export V2MODERN_TEST_CORE="$PWD/resources/core/v2ray"
+          V2MODERN_TEST_CHROMIUM=$(node -e 'process.stdout.write(require("playwright-core").chromium.executablePath())')
+          export V2MODERN_TEST_CHROMIUM
+          npm run test:ui
+      - name: Verify external Xray with a checksum-verified release
+        run: |
+          curl -fsSL https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip -o "$RUNNER_TEMP/xray.zip"
+          printf '%s  %s\n' 23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae "$RUNNER_TEMP/xray.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/xray.zip" -d "$RUNNER_TEMP/xray-test"
+          chmod +x "$RUNNER_TEMP/xray-test/xray"
+          export V2MODERN_TEST_XRAY="$RUNNER_TEMP/xray-test/xray"
+          npm run test:xray
+      - name: Verify actual Electron preload and IPC
+        run: xvfb-run -a npm run test:electron
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: V2Modern-UI-screenshots
+          path: desktop/docs/screenshot-*.png
+          if-no-files-found: ignore
