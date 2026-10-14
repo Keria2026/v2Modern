@@ -28,13 +28,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [go, javascript-typescript]
+        include:
+          - language: go
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        if: matrix.language == 'go'
+        with:
+          go-version: "1.15.15"
+          cache: false
       - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          build-mode: none
+          build-mode: ${{ matrix.build-mode }}
+      - name: Trace compatible Go builds
+        if: matrix.language == 'go'
+        run: |
+          go build -mod=readonly -o "$RUNNER_TEMP/v2ray" ./main
+          go build -mod=readonly -tags confonly -o "$RUNNER_TEMP/v2ctl" ./infra/control/main
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -mod=readonly -o "$RUNNER_TEMP/jobhost.exe" ./desktop/native/jobhost
       - uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
