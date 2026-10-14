@@ -30,7 +30,7 @@ jobs:
       matrix:
         include:
           - language: go
-            build-mode: manual
+            build-mode: autobuild
           - language: javascript-typescript
             build-mode: none
     steps:
@@ -44,12 +44,13 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-      - name: Trace compatible Go builds
+      - name: Extract Go with the supported autobuild workflow
         if: matrix.language == 'go'
-        run: |
-          go build -a -mod=readonly -o "$RUNNER_TEMP/v2ray" ./main
-          go build -a -mod=readonly -tags confonly -o "$RUNNER_TEMP/v2ctl" ./infra/control/main
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -a -mod=readonly -o "$RUNNER_TEMP/jobhost.exe" ./desktop/native/jobhost
+        uses: github/codeql-action/autobuild@v4
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
       - uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
