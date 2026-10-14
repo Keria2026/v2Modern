@@ -47,6 +47,8 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
       - name: Install locked dependencies
         run: npm ci --no-fund
+      - name: Install checksum-verified Electron runtime
+        run: npm run setup:electron
       - name: Typecheck, unit tests and dependency audit
         run: |
           npm run typecheck
@@ -106,6 +108,7 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci --no-fund
+      - run: npm run setup:electron
       - run: npm run typecheck && npm run format:check && npm test && npm run build
       - name: Build native core for functional tests
         run: |
@@ -121,7 +124,7 @@ jobs:
         run: npx --no-install playwright-core install --with-deps chromium
       - name: Run production UI against real backend
         run: |
-          rm -f docs/screenshot-*.png
+          node -e 'for (const name of ["screenshot-light.png", "screenshot-dark.png"]) require("fs").rmSync("docs/" + name, {force: true})'
           export V2MODERN_TEST_CORE="$PWD/resources/core/v2ray"
           V2MODERN_TEST_CHROMIUM=$(node -e 'process.stdout.write(require("playwright-core").chromium.executablePath())')
           export V2MODERN_TEST_CHROMIUM

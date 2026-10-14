@@ -42,6 +42,7 @@
 ```powershell
 cd desktop
 npm ci
+npm run setup:electron
 npm run typecheck
 npm test
 npm run build:core
@@ -62,6 +63,7 @@ go build -mod=readonly -o desktop/resources/core/v2ray ./main
 go build -mod=readonly -tags confonly -o desktop/resources/core/v2ctl ./infra/control/main
 cd desktop
 npm ci
+npm run setup:electron
 npm run dev
 ```
 

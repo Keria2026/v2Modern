@@ -8,7 +8,7 @@
   "license": "MIT",
   "main": "dist/main/main.js",
   "scripts": {
-    "dev": "npm run build && electron .",
+    "dev": "npm run setup:electron && npm run build && electron .",
     "build": "tsc -p tsconfig.main.json && vite build",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.tests.json",
     "test": "tsx --test tests/*.test.ts",
@@ -17,10 +17,11 @@
     "dist:win": "npm run build:core && npm run build && electron-builder --win --x64 --publish never",
     "pack:win": "npm run build:core && npm run build && electron-builder --win --x64 --dir --publish never",
     "test:ui": "npm run build && tsx --test tests/ui.integration.ts",
-    "test:electron": "npm run build && tsx --test tests/electron.integration.ts",
+    "test:electron": "npm run setup:electron && npm run build && tsx --test tests/electron.integration.ts",
     "test:xray": "tsx --test tests/xray.integration.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,html}\" \"tests/**/*.{ts,cjs}\" \"scripts/*.mjs\" *.json *.mts README.md",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\" \"tests/**/*.{ts,cjs}\" \"scripts/*.mjs\" *.json *.mts README.md"
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\" \"tests/**/*.{ts,cjs}\" \"scripts/*.mjs\" *.json *.mts README.md",
+    "setup:electron": "node node_modules/electron/install.js"
   },
   "dependencies": {
     "lucide-react": "0.468.0",
