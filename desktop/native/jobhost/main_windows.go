@@ -67,6 +67,8 @@ func run() int {
 		return 1
 	}
 	child := exec.Command(os.Args[2], os.Args[3:]...)
+	// Do not allocate a console window for the wrapped core.
+	child.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	child.Stdin = os.Stdin
 	child.Stdout = os.Stdout
 	child.Stderr = os.Stderr
